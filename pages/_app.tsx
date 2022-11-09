@@ -1,18 +1,18 @@
-import '../styles/globals.css';
-import '@rainbow-me/rainbowkit/styles.css';
-import type { AppProps } from 'next/app';
+import "../styles/globals.css";
+import "@rainbow-me/rainbowkit/styles.css";
+import type { AppProps } from "next/app";
 import {
   RainbowKitProvider,
   getDefaultWallets,
   createAuthenticationAdapter,
   RainbowKitAuthenticationProvider,
   darkTheme,
-} from '@rainbow-me/rainbowkit';
-import { chain, configureChains, createClient, WagmiConfig } from 'wagmi';
-import { alchemyProvider } from 'wagmi/providers/alchemy';
-import { publicProvider } from 'wagmi/providers/public';
-import { useEffect, useState } from 'react';
-import { SiweMessage } from 'siwe';
+} from "@rainbow-me/rainbowkit";
+import { chain, configureChains, createClient, WagmiConfig } from "wagmi";
+import { alchemyProvider } from "wagmi/providers/alchemy";
+import { publicProvider } from "wagmi/providers/public";
+import { useEffect, useState } from "react";
+import { SiweMessage } from "siwe";
 
 const { chains, provider, webSocketProvider } = configureChains(
   [
@@ -20,22 +20,20 @@ const { chains, provider, webSocketProvider } = configureChains(
     chain.polygon,
     chain.optimism,
     chain.arbitrum,
-    ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === 'true'
+    ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true"
       ? [chain.goerli, chain.kovan, chain.rinkeby, chain.ropsten]
       : []),
   ],
   [
     alchemyProvider({
-      // This is Alchemy's default API key.
-      // You can get your own at https://dashboard.alchemyapi.io
-      apiKey: '_gg7wSSi0KMBsdKnGVfHDueq6xMB9EkC',
+      apiKey: "gRV8E8H-ok8nzUOAdR4YY_bCM5BCoqy5",
     }),
     publicProvider(),
   ]
 );
 
 const { connectors } = getDefaultWallets({
-  appName: 'RainbowKit App',
+  appName: "RainbowKit App",
   chains,
 });
 
@@ -48,22 +46,49 @@ const wagmiClient = createClient({
 
 function MyApp({ Component, pageProps }: AppProps) {
   const [authenticationStatus, setAuthenticationStatus] = useState<
-    'loading' | 'authenticated' | 'unauthenticated'
-  >('unauthenticated');
+    "loading" | "authenticated" | "unauthenticated"
+  >("unauthenticated");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const me = await (
+          await fetch(`https://proxy.spect.network/api/user/me`, {
+            headers: {
+              Authorization: `Bearer SPECT_BETA_API_TOKEN`,
+            },
+            credentials: "include",
+          })
+        ).json();
+        console.log({ me });
+      } catch (e) {
+        console.log(e);
+      }
+    })();
+  }, []);
 
   const authenticationAdapter = createAuthenticationAdapter({
     getNonce: async () => {
-      const response = await fetch('/api/auth/nonce');
-      const res = await response.json();
+      console.log("hi");
+      const response = await fetch(
+        `https://proxy.spect.network/api/auth/nonce`,
+        {
+          headers: {
+            Authorization: `Bearer SPECT_BETA_API_TOKEN`,
+          },
+          credentials: "include",
+        }
+      );
+      const res = await response.text();
       return res;
     },
     createMessage: ({ nonce, address, chainId }) => {
       return new SiweMessage({
         domain: window.location.host,
         address,
-        statement: 'Sign in with Ethereum to the app.',
+        statement: "Sign in with Ethereum to the app.",
         uri: window.location.origin,
-        version: '1',
+        version: "1",
         chainId,
         nonce,
       });
@@ -73,26 +98,32 @@ function MyApp({ Component, pageProps }: AppProps) {
     },
     verify: async ({ message, signature }) => {
       console.log({ signature });
-      const verifyRes = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          authSig: {
+      const verifyRes: any = await fetch(
+        `https://proxy.spect.network/api/auth/connect`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer SPECT_BETA_API_TOKEN`,
+          },
+          body: JSON.stringify({
             message,
             signature,
-            signedMessage: message.prepareMessage(),
-          },
-        }),
-      });
+          }),
+          credentials: "include",
+        }
+      );
       console.log({ verifyRes });
       setAuthenticationStatus(
-        verifyRes.ok ? 'authenticated' : 'unauthenticated'
+        verifyRes.ok ? "authenticated" : "unauthenticated"
       );
       return Boolean(verifyRes.ok);
     },
     signOut: async () => {
-      await fetch('/api/auth/logout');
-      setAuthenticationStatus('unauthenticated');
+      await fetch(`/api/auth/logout`, {
+        method: "POST",
+      });
+      setAuthenticationStatus("unauthenticated");
     },
   });
 
